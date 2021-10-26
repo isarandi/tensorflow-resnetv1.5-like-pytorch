@@ -3,7 +3,6 @@ import numpy as np
 import os
 import shutil
 import hashlib
-import urllib.request
 import tensorflow as tf
 import h5py
 
