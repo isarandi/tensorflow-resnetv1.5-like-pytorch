@@ -120,7 +120,7 @@ def name_pytorch_to_h5(name):
                 out.append('bn')
                 name_dict = bn_dict
         else:
-            out.append(int(part[-1]))
+            out.append(str(int(part[-1])))
             if part.startswith('bn'):
                 out.append('bn')
                 name_dict = bn_dict
@@ -128,10 +128,9 @@ def name_pytorch_to_h5(name):
                 out.append('conv')
                 name_dict = conv_dict
 
-    part = parts.pop(0)
-    out.append(name_dict[part])
-    mainpart = '_'.join(map(str, out[:-1]))
-    return f'{mainpart}/{mainpart}/{out[-1]}:0'
+    folder = '_'.join(out)
+    lastpart = name_dict[parts.pop(0)]
+    return f'{folder}/{folder}/{lastpart}:0'
 
 
 def get_md5(filepath):
