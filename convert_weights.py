@@ -1,9 +1,9 @@
 import torch
+import tensorflow as tf
 import numpy as np
 import os
 import shutil
 import hashlib
-import tensorflow as tf
 import h5py
 
 
@@ -71,10 +71,10 @@ def resnet_ckpt_pytorch_to_tf(url_pytorch, url_tf, out_path, hash_pytorch, hash_
 
     with h5py.File(out_path, mode='r+') as out_h5:
         for name, value in ckpt_torch.items():
-            value = value.detach().numpy()
             if name.startswith('fc.') and 'notop' in url_tf:
                 continue
-                
+            
+            value = value.detach().numpy()
             h5_name = name_pytorch_to_h5(name)
             if h5_name.endswith('kernel:0'):
                 if h5_name.startswith('probs'):
@@ -84,36 +84,31 @@ def resnet_ckpt_pytorch_to_tf(url_pytorch, url_tf, out_path, hash_pytorch, hash_
             out_h5[h5_name][:] = value
             
     hash_tf_out = get_md5(out_path)
-    if hash_tf_out_expected is not None and hash_tf_out == hash_tf_out_expected:
+    if hash_tf_out_expected is not None:
         print('Hash OK' if hash_tf_out == hash_tf_out_expected else 'Hash error')
     print(out_path, hash_tf_out)
     
 
 def name_pytorch_to_h5(name):
-    parts = name.split('.')
-    out = []
-    part = parts.pop(0)
     bn_dict = dict(weight='gamma', bias='beta', running_mean='moving_mean', running_var='moving_variance')
     conv_dict =  dict(weight='kernel', bias='bias')
     
+    parts = name.split('.')
+    out = []
+    part = parts.pop(0)
     if part == 'fc':
-        if parts.pop(0) == 'weight':
-            return 'probs/probs/kernel:0'
-        else:
-            return 'probs/probs/bias:0'
-    elif part in ('conv1', 'bn1'):
-        out.append('conv1')
-        if part == 'conv1':
-            out.append('conv')
-            name_dict = conv_dict
-        else:
-            out.append('bn')
-            name_dict = bn_dict
+        out.append('probs')
+        name_dict = conv_dict
+    elif part == 'conv1':
+        out += ['conv1', 'conv']
+        name_dict = conv_dict
+    elif part == 'bn1':
+        out += ['conv1', 'bn']
+        name_dict = bn_dict
     else:
         tf_block = int(part[5])
         tf_conv = int(parts.pop(0))
-        out.append(f'conv{tf_block+1}')
-        out.append(f'block{tf_conv+1}')
+        out += [f'conv{tf_block+1}', f'block{tf_conv+1}']
         part = parts.pop(0)
         if part == 'downsample':
             out.append('0')
@@ -135,9 +130,8 @@ def name_pytorch_to_h5(name):
 
     part = parts.pop(0)
     out.append(name_dict[part])
-    mainpart = '_'.join(map(str,out[:-1]))
-    out = f'{mainpart}/{mainpart}/{out[-1]}:0'
-    return out
+    mainpart = '_'.join(map(str, out[:-1]))
+    return f'{mainpart}/{mainpart}/{out[-1]}:0'
 
 
 def get_md5(filepath):
